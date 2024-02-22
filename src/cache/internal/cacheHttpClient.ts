@@ -103,6 +103,8 @@ export function getCacheVersion(
 export async function getCacheEntry(
   keys: string[],
   paths: string[],
+  repo_id: string,
+  owner_id: string,
   options?: InternalCacheOptions
 ): Promise<ArtifactCacheEntry | null> {
   const httpClient = createHttpClient()
@@ -113,7 +115,7 @@ export async function getCacheEntry(
   )
   const resource = `cache?keys=${encodeURIComponent(
     keys.join(',')
-  )}&version=${version}`
+  )}&version=${version}&repo_id=${repo_id}&owner_id=${owner_id}`
 
   const response = await retryTypedResponse('getCacheEntry', async () =>
     httpClient.getJson<ArtifactCacheEntry>(getCacheApiUrl(resource))
@@ -122,7 +124,7 @@ export async function getCacheEntry(
   if (response.statusCode === 204) {
     // List cache for primary key only if cache miss occurs
     if (core.isDebug()) {
-      await printCachesListForDiagnostics(keys[0], httpClient, version)
+      await printCachesListForDiagnostics(keys[0], httpClient, version, repo_id, owner_id)
     }
     return null
   }
@@ -146,9 +148,11 @@ export async function getCacheEntry(
 async function printCachesListForDiagnostics(
   key: string,
   httpClient: HttpClient,
-  version: string
+  version: string,
+  repo_id: string,
+  owner_id: string
 ): Promise<void> {
-  const resource = `caches?key=${encodeURIComponent(key)}`
+  const resource = `caches?key=${encodeURIComponent(key)}&repo_id=${repo_id}&owner_id=${owner_id}`
   const response = await retryTypedResponse('listCache', async () =>
     httpClient.getJson<ArtifactCacheList>(getCacheApiUrl(resource))
   )
@@ -171,6 +175,8 @@ async function printCachesListForDiagnostics(
 export async function downloadCache(
   archiveLocation: string,
   archivePath: string,
+  repo_id: string,
+  owner_id: string,
   options?: DownloadOptions
 ): Promise<void> {
   const archiveUrl = new URL(archiveLocation)
@@ -204,6 +210,8 @@ export async function downloadCache(
 export async function reserveCache(
   key: string,
   paths: string[],
+  repo_id: string,
+  owner_id: string,
   options?: InternalCacheOptions
 ): Promise<ITypedResponseWithError<ReserveCacheResponse>> {
   const httpClient = createHttpClient()
@@ -220,7 +228,7 @@ export async function reserveCache(
   }
   const response = await retryTypedResponse('reserveCache', async () =>
     httpClient.postJson<ReserveCacheResponse>(
-      getCacheApiUrl('caches'),
+      getCacheApiUrl(`caches?repo_id=${repo_id}&owner_id=${owner_id}`),
       reserveCacheRequest
     )
   )
@@ -278,11 +286,13 @@ async function uploadFile(
   httpClient: HttpClient,
   cacheId: number,
   archivePath: string,
+  repo_id: string,
+  owner_id: string,
   options?: UploadOptions
 ): Promise<void> {
   // Upload Chunks
   const fileSize = utils.getArchiveFileSizeInBytes(archivePath)
-  const resourceUrl = getCacheApiUrl(`caches/${cacheId.toString()}`)
+  const resourceUrl = getCacheApiUrl(`caches/${cacheId.toString()}?repo_id=${repo_id}&owner_id=${owner_id}`)
   const fd = fs.openSync(archivePath, 'r')
   const uploadOptions = getUploadOptions(options)
 
@@ -339,12 +349,14 @@ async function uploadFile(
 async function commitCache(
   httpClient: HttpClient,
   cacheId: number,
-  filesize: number
+  filesize: number,
+  repo_id: string,
+  owner_id: string 
 ): Promise<TypedResponse<null>> {
   const commitCacheRequest: CommitCacheRequest = {size: filesize}
   return await retryTypedResponse('commitCache', async () =>
     httpClient.postJson<null>(
-      getCacheApiUrl(`caches/${cacheId.toString()}`),
+      getCacheApiUrl(`caches/${cacheId.toString()}?repo_id=${repo_id}&owner_id=${owner_id}`),
       commitCacheRequest
     )
   )
@@ -353,12 +365,14 @@ async function commitCache(
 export async function saveCache(
   cacheId: number,
   archivePath: string,
+  repo_id: string,
+  owner_id: string,
   options?: UploadOptions
 ): Promise<void> {
   const httpClient = createHttpClient()
 
   core.debug('Upload cache')
-  await uploadFile(httpClient, cacheId, archivePath, options)
+  await uploadFile(httpClient, cacheId, archivePath, repo_id, owner_id, options)
 
   // Commit Cache
   core.debug('Commiting cache')
@@ -367,7 +381,7 @@ export async function saveCache(
     `Cache Size: ~${Math.round(cacheSize / (1024 * 1024))} MB (${cacheSize} B)`
   )
 
-  const commitCacheResponse = await commitCache(httpClient, cacheId, cacheSize)
+  const commitCacheResponse = await commitCache(httpClient, cacheId, cacheSize, repo_id, owner_id)
   if (!isSuccessStatusCode(commitCacheResponse.statusCode)) {
     throw new Error(
       `Cache service responded with ${commitCacheResponse.statusCode} during commit cache.`

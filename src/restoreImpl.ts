@@ -1,4 +1,4 @@
-import * as cache from "@actions/cache";
+import * as cache from "./cache/cache";
 import * as core from "@actions/core";
 
 import { Events, Inputs, Outputs, State } from "./constants";
@@ -40,6 +40,12 @@ export async function restoreImpl(
         );
         const failOnCacheMiss = utils.getInputAsBool(Inputs.FailOnCacheMiss);
         const lookupOnly = utils.getInputAsBool(Inputs.LookupOnly);
+
+		const repo_id = process.env["ACTIONS_REPO_ID"]
+		const owner_id = process.env["ACTIONS_OWNER_ID"]
+		core.info(`repo_id: ${repo_id}`)
+		core.info(`owner_id: ${owner_id}`)
+		core.info(JSON.stringify(process.env))
 
         const cacheKey = await cache.restoreCache(
             cachePaths,

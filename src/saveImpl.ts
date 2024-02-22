@@ -1,4 +1,4 @@
-import * as cache from "@actions/cache";
+import * as cache from "./cache/cache";
 import * as core from "@actions/core";
 
 import { Events, Inputs, State } from "./constants";
@@ -61,6 +61,9 @@ export async function saveImpl(
         const enableCrossOsArchive = utils.getInputAsBool(
             Inputs.EnableCrossOsArchive
         );
+
+		const owner_id = process.env["ACTIONS_REPO_ID"]
+		const repo_id = process.env["ACTIONS_OWNER_ID"]
 
         cacheId = await cache.saveCache(
             cachePaths,

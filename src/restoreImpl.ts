@@ -1,4 +1,4 @@
-import * as cache from "@actions/cache";
+import * as cache from "./cache";
 import * as core from "@actions/core";
 
 import { Events, Inputs, Outputs, State } from "./constants";
@@ -56,7 +56,7 @@ export async function restoreImpl(
                 );
             }
             core.info(
-                `Cache not found for input keys: ${[
+                `111Cache not found for input keys: ${[
                     primaryKey,
                     ...restoreKeys
                 ].join(", ")}`
